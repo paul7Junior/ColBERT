@@ -101,12 +101,12 @@ class IndexScorer(IndexLoader, CandidateGeneration):
                 if len(pids) == 0:
                     return [], []
 
-            scores, pids = self.score_pids(config, Q, pids, centroid_scores)
+            scores, pids, D_packed = self.score_pids(config, Q, pids, centroid_scores)
 
             scores_sorter = scores.sort(descending=True)
             pids, scores = pids[scores_sorter.indices].tolist(), scores_sorter.values.tolist()
 
-            return pids, scores
+            return pids, scores, D_packed
 
     def score_pids(self, config, Q, pids, centroid_scores):
         """
@@ -185,9 +185,9 @@ class IndexScorer(IndexLoader, CandidateGeneration):
             D_mask = self.doclens[pids.long()]
 
         if Q.size(0) == 1:
-            return colbert_score_packed(Q, D_packed, D_mask, config), pids
+            return colbert_score_packed(Q, D_packed, D_mask, config), pids, D_packed
 
         D_strided = StridedTensor(D_packed, D_mask, use_gpu=self.use_gpu)
         D_padded, D_lengths = D_strided.as_padded_tensor()
 
-        return colbert_score(Q, D_padded, D_lengths, config), pids
+        return colbert_score(Q, D_padded, D_lengths, config), pids, D_packed

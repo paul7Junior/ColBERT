@@ -20,16 +20,13 @@ TextQueries = Union[str, 'list[str]', 'dict[int, str]', Queries]
 
 
 class Searcher:
-    def __init__(self, index, checkpoint=None, collection=None, config=None, index_root=None, verbose:int = 3):
-        self.verbose = verbose
-        if self.verbose > 1:
-            print_memory_stats()
+    def __init__(self, index, checkpoint=None, collection=None, config=None):
+        print_memory_stats()
 
         initial_config = ColBERTConfig.from_existing(config, Run().config)
 
         default_index_root = initial_config.index_root_
-        index_root = index_root if index_root else default_index_root
-        self.index = os.path.join(index_root, index)
+        self.index = os.path.join(default_index_root, index)
         self.index_config = ColBERTConfig.load_from_index(self.index)
 
         self.checkpoint = checkpoint or self.index_config.checkpoint
@@ -39,7 +36,7 @@ class Searcher:
         self.collection = Collection.cast(collection or self.config.collection)
         self.configure(checkpoint=self.checkpoint, collection=self.collection)
 
-        self.checkpoint = Checkpoint(self.checkpoint, colbert_config=self.config, verbose=self.verbose)
+        self.checkpoint = Checkpoint(self.checkpoint, colbert_config=self.config)
         use_gpu = self.config.total_visible_gpus > 0
         if use_gpu:
             self.checkpoint = self.checkpoint.cuda()
@@ -126,6 +123,6 @@ class Searcher:
             if self.config.ndocs is None:
                 self.configure(ndocs=max(k * 4, 4096))
 
-        pids, scores = self.ranker.rank(self.config, Q, filter_fn=filter_fn, pids=pids)
+        pids, scores, D_packed = self.ranker.rank(self.config, Q, filter_fn=filter_fn, pids=pids)
 
-        return pids[:k], list(range(1, k+1)), scores[:k]
+        return pids[:k], list(range(1, k+1)), scores[:k], D_packed, D_packed[:k]
